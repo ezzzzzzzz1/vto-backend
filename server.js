@@ -14,8 +14,13 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
-app.use(cors());
-
+app.use(cors({
+  origin: [
+    'https://mohamed-ezzeldine-48-teststore.myshopify.com/',
+    'https://your-custom-domain.com',
+    'http://localhost:3000',
+  ]
+}));
 app.use((req, res, next) => {
   express.json({ limit: "50mb" })(req, res, (err) => {
     if (err) {
@@ -239,7 +244,23 @@ app.get("/health", (_req, res) =>
     timestamp: new Date().toISOString(),
   })
 );
+// ─── GET /fetch-image — proxy Shopify CDN images to avoid CORS ────────────────
+app.get("/fetch-image", async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).json({ error: "url param required" });
 
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const buffer = await response.arrayBuffer();
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    res.set("Content-Type", contentType);
+    res.set("Access-Control-Allow-Origin", "*");
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // ─── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n✅  VTO Backend → http://localhost:${PORT}`);
